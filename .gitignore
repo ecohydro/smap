@@ -1,0 +1,4 @@
+# python compiled files:
+*.pyc
+2401*.txt
+SMAP_output/
