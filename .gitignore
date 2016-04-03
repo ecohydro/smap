@@ -3,3 +3,7 @@
 2401*.txt
 SMAP_output/
 .DS_Store
+table*
+*Table*
+flux.dat
+upper.dat

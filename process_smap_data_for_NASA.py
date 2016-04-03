@@ -91,7 +91,7 @@ def join(left_file, right_file, output_file):
     call(cmd, shell=True)
 
 
-def cut(input_file, output_file, columns=[]):
+def cut(input_file, output_file, variables=[]):
     """Cut out columns from a datafile and save to new file.
 
     Assumes comma-delimited
@@ -100,8 +100,10 @@ def cut(input_file, output_file, columns=[]):
     param: output_file - New file to be created from selected columns
     param: columns - List of columns to cut
     """
-    if columns:
-        cols = ','.join([str(x) for x in columns])
+    if variables:
+        file_vars = get_vars(input_file)
+        columns = [file_vars.index(var) for var in variables]
+        cols = ','.join([str(x+1) for x in columns])
         cut_cmd = 'cut -d ","  -f {cols} '.format(
             cols=cols
         )
@@ -138,9 +140,9 @@ def get_vars(input_file):
     return [x.rstrip() for x in variables.split(',')]
 
 
-def columns_to_keep(variables=[]):
+def variables_to_keep(variables=[]):
     """Filter columns based on variable names."""
-    cols_to_keep = []
+    vars_to_keep = []
     for i in range(len(variables)):
         name = variables[i]
         if name == '"RECORD"':
@@ -159,8 +161,8 @@ def columns_to_keep(variables=[]):
             continue
         if name[:4] == '"bad' or name[:7] == '"broken' or name[:6] == '"moved':
             continue
-        cols_to_keep.append(i + 1)
-    return cols_to_keep
+        vars_to_keep.append(name)
+    return vars_to_keep
 
 # STEP 1: Define files and create temporary files with needed variables.
 (data_dir, _) = os.path.split(os.getcwd())
@@ -170,18 +172,23 @@ flux_data_file = data_dir + '/' + 'CR3000_SN4709_flux.dat'
 
 # Remove the timestamp and last column from the upper file and save
 # result to upper.dat
-success = cut(upper_file, 'upper.dat', columns=[1, 66])
+success = cut(
+    upper_file,
+    'upper.dat',
+    variables=['"TIMESTAMP"', '"rainfall_Tot"'])
 success = cut(
     soil_moisture_file,
     'table1.dat',
-    columns=columns_to_keep(get_vars(soil_moisture_file))
+    variables=variables_to_keep(get_vars(soil_moisture_file))
 )
 success = cut(
     flux_data_file,
     'flux.dat',
-    columns=[1, 39])
+    variables=['"TIMESTAMP"', '"t_hmp_Avg"'])
 # Trim the CSI junk out of flux.dat (meta, units, type)
 remove_lines('flux.dat', [0, 2, 3])
+remove_lines('table1.dat', [0, 2, 3])
+remove_lines('upper.dat', [0, 2, 3])
 
 # STEP 2: Process the CR216 files.
 # All the CR216 files. We should get CR216_SN22027_soil.dat someday.
@@ -210,7 +217,7 @@ for soil_file in CR216_files.keys():
     success = cut(
         this_file,
         CR216_files[soil_file][0],
-        columns=columns_to_keep(get_vars(this_file))
+        variables=variables_to_keep(get_vars(this_file))
     )
 
 # STEP 3: Combine data before downscaling.
